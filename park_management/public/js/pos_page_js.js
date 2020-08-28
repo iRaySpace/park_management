@@ -237,8 +237,8 @@ erpnext.pos.PointOfSale = erpnext.pos.PointOfSale.extend({
     const me = this;
     me.party_field.$input.on('awesomplete-select', async function(e) {
       const customer = e.target.value;
-      const customer_info = await _get_customer_info(customer);
-      me.customer_info = customer_info;
+      me.customer_info = await _get_customer_info(customer);
+      _validate_customer_info(me.customer_info);
     });
   },
   validate_add_to_cart: function() {
@@ -249,7 +249,9 @@ erpnext.pos.PointOfSale = erpnext.pos.PointOfSale.extend({
     const child_items_length = this.frm.doc.items
       .filter((item) => item.item_name.includes('Resident Child'))
       .reduce((total, item) => total + item.qty, 0);
-    if (current_item['item_name'].includes('Resident Child') && child_items_length + 1 > children_allowed) {
+    if (current_item['item_name'].includes('Resident Child') && me.customer_info.lease_expired) {
+      frappe.throw(__('Lease is already expired. Please pay for the entrance fee'));
+    } else if (current_item['item_name'].includes('Resident Child') && child_items_length + 1 > children_allowed) {
       frappe.throw(__(`Only ${children_allowed} children allowed`));
     }
 
@@ -257,7 +259,9 @@ erpnext.pos.PointOfSale = erpnext.pos.PointOfSale.extend({
     const adult_items_length = this.frm.doc.items
       .filter((item) => item.item_name.includes('Resident Adult'))
       .reduce((total, item) => total + item.qty, 0);
-    if (current_item['item_name'].includes('Resident Adult') && adult_items_length + 1 > adults_allowed) {
+    if (current_item['item_name'].includes('Resident Adult') && me.customer_info.lease_expired) {
+      frappe.throw(__('Lease is already expired. Please pay for the entrance fee'));
+    } else if (current_item['item_name'].includes('Resident Adult') && adult_items_length + 1 > adults_allowed) {
       frappe.throw(__(`Only ${adults_allowed} adults allowed`));
     }
   }
@@ -274,9 +278,10 @@ async function _get_customer_info(customer) {
 }
 
 
-function _validate_customer_park(pos) {
-  const { customer_info } = pos;
-  console.log(pos.items);
+function _validate_customer_info(customer_info) {
+  if (customer_info.lease_expired) {
+    frappe.msgprint(__('Lease is expired. Customer has to Pay'));
+  }
 }
 
 
