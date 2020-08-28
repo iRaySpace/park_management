@@ -2,6 +2,7 @@
 export default function withAsyncAddToCart(Pos) {
   return class PosExtended extends Pos {
     async add_to_cart() {
+      this.validate_add_to_cart && this.validate_add_to_cart();
       this.customer_validate();
 
       const { has_batch_no } = this.items[0];

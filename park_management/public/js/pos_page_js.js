@@ -7,7 +7,7 @@ erpnext.pos.PointOfSale = erpnext.pos.PointOfSale.extend({
     this._super(r);
     try {
       const { message: pos_data = {} } = await frappe.call({
-        method: 'pos_bahrain.api.item.get_more_pos_data',
+        method: 'park_management.api.item.get_more_pos_data',
         args: {
           profile: this.pos_profile_data.name,
           company: this.doc.company,
@@ -45,7 +45,7 @@ erpnext.pos.PointOfSale = erpnext.pos.PointOfSale.extend({
   },
   set_opening_entry: async function() {
     const { message: pos_voucher } = await frappe.call({
-      method: 'pos_bahrain.api.pos_voucher.get_unclosed',
+      method: 'park_management.api.pos_voucher.get_unclosed',
       args: {
         user: frappe.session.user,
         pos_profile: this.pos_profile_data.name,
@@ -76,7 +76,7 @@ erpnext.pos.PointOfSale = erpnext.pos.PointOfSale.extend({
       dialog.set_primary_action('Enter', async () => {
         try {
           const { message: voucher_name } = await frappe.call({
-            method: 'pos_bahrain.api.pos_voucher.create_opening',
+            method: 'park_management.api.pos_voucher.create_opening',
             args: {
               posting: dialog.get_value('period_from'),
               opening_amount: dialog.get_value('opening_amount'),
@@ -232,7 +232,53 @@ erpnext.pos.PointOfSale = erpnext.pos.PointOfSale.extend({
       this.set_opening_entry();
     }
   },
+  make_customer: function() {
+    this._super();
+    const me = this;
+    me.party_field.$input.on('awesomplete-select', async function(e) {
+      const customer = e.target.value;
+      const customer_info = await _get_customer_info(customer);
+      me.customer_info = customer_info;
+    });
+  },
+  validate_add_to_cart: function() {
+    const me = this;
+    const current_item = this.items[0];
+
+    const children_allowed = me.customer_info.pb_children_allowed;
+    const child_items_length = this.frm.doc.items
+      .filter((item) => item.item_name.includes('Resident Child'))
+      .reduce((total, item) => total + item.qty, 0);
+    if (current_item['item_name'].includes('Resident Child') && child_items_length + 1 > children_allowed) {
+      frappe.throw(__(`Only ${children_allowed} children allowed`));
+    }
+
+    const adults_allowed = me.customer_info.pb_adults_allowed;
+    const adult_items_length = this.frm.doc.items
+      .filter((item) => item.item_name.includes('Resident Adult'))
+      .reduce((total, item) => total + item.qty, 0);
+    if (current_item['item_name'].includes('Resident Adult') && adult_items_length + 1 > adults_allowed) {
+      frappe.throw(__(`Only ${adults_allowed} adults allowed`));
+    }
+  }
 });
+
+
+async function _get_customer_info(customer) {
+  const { message: customer_info } = await frappe.call({
+    method: "park_management.api.customer.get_customer_info",
+    freeze: true,
+    args: { customer },
+  });
+  return customer_info;
+}
+
+
+function _validate_customer_park(pos) {
+  const { customer_info } = pos;
+  console.log(pos.items);
+}
+
 
 erpnext.pos.PointOfSale = pos_bahrain.addons.extend_pos(
   erpnext.pos.PointOfSale
